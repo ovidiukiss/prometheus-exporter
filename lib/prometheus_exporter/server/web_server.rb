@@ -45,10 +45,10 @@ module PrometheusExporter::Server
       @logger.info "Using Basic Authentication via #{@auth}" if @verbose && @auth
 
       @server = WEBrick::HTTPServer.new(
-        Port:        @port,
+        Port: @port,
         BindAddress: @bind,
-        Logger:      @logger,
-        AccessLog:   @access_log,
+        Logger: @logger,
+        AccessLog: @access_log,
         )
 
       @server.mount_proc '/' do |req, res|
@@ -188,7 +188,7 @@ module PrometheusExporter::Server
         next if t[:worker_implementation].nil?
         next if t[:worker_implementation][:last_beat].nil?
         workers += 1
-        diff = (Time.now.utc  - t[:worker_implementation][:last_beat] )
+        diff = (Time.now.utc - t[:worker_implementation][:last_beat])
         next unless diff > ENV.fetch('ALIVE_TIMEOUT', 30)
         dead += 1
         @dead_workers << [ "worker: #{workers}",
