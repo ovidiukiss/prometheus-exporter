@@ -18,6 +18,7 @@ module PrometheusExporter::Server
       @auth = opts[:auth]
       @realm = opts[:realm] || PrometheusExporter::DEFAULT_REALM
       @route = opts[:route] || false
+      @healthcheck = opts[:healthcheck]
 
       @metrics_total = PrometheusExporter::Metric::Counter.new('collector_metrics_total', 'Total metrics processed by exporter web.')
 
@@ -73,14 +74,8 @@ module PrometheusExporter::Server
           end
         elsif req.path == '/send-metrics'
           handle_metrics(req, res)
-        elsif  @route && req.path == "/#{@route}"
-          if dead_workers?.positive?
-            res.status = 404
-            res.body = "Dead :  #{@dead_workers}"
-          else
-            res.status = 200
-            res.body = 'It\'s alive'
-          end
+        elsif  @route && req.path == "/#{@route}" && !@healthcheck.nil?
+          @healthcheck.call(res)
         else
           res.status = 404
           res.body = 'Not Found! The Prometheus Ruby Exporter only listens on /metrics and /send-metrics'
@@ -178,25 +173,6 @@ module PrometheusExporter::Server
       basic_auth = WEBrick::HTTPAuth::BasicAuth.new({ Realm: @realm, UserDB: htpasswd, Logger: @logger })
 
       basic_auth.authenticate(req, res)
-    end
-
-    def dead_workers?
-      dead = 0
-      workers = 0
-      @dead_workers = []
-      Thread.list.each do | t |
-        next if t[:worker_implementation].nil?
-        next if t[:worker_implementation][:last_beat].nil?
-        workers += 1
-        diff = (Time.now.utc - t[:worker_implementation][:last_beat])
-        next unless diff > ENV.fetch('ALIVE_TIMEOUT', 30)
-        dead += 1
-        @dead_workers << [ "worker: #{workers}",
-                           t[:worker_implementation][:uuid],
-                           t[:worker_implementation][:last_beat] ]
-      end
-      return workers if workers.zero?
-      dead
     end
 
   end
